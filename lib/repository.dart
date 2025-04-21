@@ -15,10 +15,11 @@ abstract interface class IARepository {
 }
 
 class IARepositoryImpl implements IARepository {
-  final _url = Uri.parse(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCm01x5TegvYWQ0VpnYRAYSDzrvOXHEAUE");
-  final _urlStream = Uri.parse(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=AIzaSyCm01x5TegvYWQ0VpnYRAYSDzrvOXHEAUE");
+  final apiKey = const String.fromEnvironment("API_KEY");
+  late final _url = Uri.parse(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey");
+  late final _urlStream = Uri.parse(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=$apiKey");
 
   @override
   Future<Generator> chat({
@@ -42,6 +43,9 @@ class IARepositoryImpl implements IARepository {
         ],
         "generationConfig": {
           "stopSequences": [],
+          "thinkingConfig": {
+            "thinkingBudget": 1024,
+          },
           "temperature": 0.5,
           "maxOutputTokens": 800,
           "topP": 0.8,

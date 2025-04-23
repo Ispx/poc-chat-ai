@@ -1,0 +1,59 @@
+name: Git diff report AI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze_diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get diff and analyze with Gemini
+        run: |
+          diff_output=$(git diff main dev)
+
+          json_payload=$(jq -n --arg diff "$diff_output" '{
+            system_instruction: {
+              parts: [
+                {
+                  text: "Você é um agente responsável por realizar análise das alterações entre duas branches: a principal (main) e a que contém as novas alterações (dev)."
+                },
+                {
+                  text: "Seu objetivo é identificar possíveis vulnerabilidades, alterações críticas que possam causar problemas na main, e sugerir melhorias/refatorações."
+                }
+              ]
+            },
+            contents: [
+              {
+                parts: [
+                  {
+                    text: $diff
+                  }
+                ]
+              }
+            ],
+            tools: [
+              {
+                code_execution: {}
+              }
+            ],
+            generationConfig: {
+              thinkingConfig: {
+                thinkingBudget: 1024
+              },
+              temperature: 0.5,
+              maxOutputTokens: 3000,
+              topP: 0.8,
+              topK: 10
+            }
+          }')
+
+          response=$(curl --location 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=AIzaSyCm01x5TegvYWQ0VpnYRAYSDzrvOXHEAUE' \
+            --header 'Content-Type: application/json' \
+            --data-raw "$json_payload")
+
+          output_text=$(echo "$response" | jq -r '.candidates[0].content.parts[].text')
+          echo "$output_text"
+

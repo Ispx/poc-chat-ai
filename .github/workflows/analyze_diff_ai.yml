@@ -1,4 +1,4 @@
-name: Git diff report AI
+name: Agente Main Guardian
 
 on:
   pull_request:
@@ -14,48 +14,49 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+       # with:
+       #   token: ${{ secrets.MY_PAT }}
       - name: Get diff between main and PR branch
         run: |
           BASE_BRANCH="origin/main"
           HEAD_BRANCH="HEAD"
-          diff_output=$(git diff $BASE_BRANCH $HEAD_BRANCH)
+          PR_BRANCH="${{ github.head_ref }}"
 
-          json_payload=$(jq -n --arg diff "$diff_output" '{
-            system_instruction: {
-              parts: [
-                {
-                  text: "Você é um agente responsável por realizar análise das alterações entre duas branches: a principal (main) e a que contém as novas alterações (dev)."
-                },
-                {
-                  text: "Seu objetivo é identificar possíveis vulnerabilidades, alterações críticas que possam causar problemas na main, e sugerir melhorias/refatorações."
-                }
-              ]
-            },
-            contents: [
-              {
+          git fetch origin main
+          diff_output=$(git diff $BASE_BRANCH $HEAD_BRANCH)
+          system_msg_1="Você é o agente Main Guardian responsável por proteger a branch main das novas alterações que serão implementadas para isso você precisa realizar análise das alterações entre a branch a principal ($BASE_BRANCH) e a que contém as novas alterações ($PR_BRANCH)."
+          system_msg_2="Seu objetivo é identificar possíveis bugs, vulnerabilidades, alterações críticas que possam afetar as funcionalidades já existentes na branch principal (main), e sugerir melhorias/refatorações na branch $PR_BRANCH."
+      
+          json_payload=$(jq -n \
+          --arg diff "$diff_output" \
+          --arg msg1 "$system_msg_1" \
+          --arg msg2 "$system_msg_2" \
+            '{
+              system_instruction: {
                 parts: [
-                  {
-                    text: $diff
-                  }
+                  { text: $msg1 },
+                  { text: $msg2 }
                 ]
-              }
-            ],
-            tools: [
-              {
-                code_execution: {}
-              }
-            ],
-            generationConfig: {
-              thinkingConfig: {
-                thinkingBudget: 1024
               },
-              temperature: 0.5,
-              maxOutputTokens: 3000,
-              topP: 0.8,
-              topK: 10
-            }
-          }')
+              contents: [
+                {
+                  parts: [
+                    { text: $diff }
+                  ]
+                }
+              ],
+              tools: [
+                { code_execution: {} }
+              ],
+              generationConfig: {
+                thinkingConfig: { thinkingBudget: 3000 },
+                temperature: 0.5,
+                maxOutputTokens: 3000,
+                topP: 0.8,
+                topK: 10
+              }
+            }'
+          )
 
           response=$(curl --location 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${{ secrets.GEMINI_API_KEY }}' \
             --header 'Content-Type: application/json' \
